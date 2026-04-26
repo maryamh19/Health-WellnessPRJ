@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WellSense Dashboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f0f4f8; color: #1a1a1a; padding: 16px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px; }
+    .logo { font-size: 26px; font-weight: 700; }
+    .logo span { color: #1D9E75; }
+    .score-pill { background: #E1F5EE; color: #0F6E56; font-size: 14px; font-weight: 700; padding: 8px 20px; border-radius: 999px; border: 1px solid #9FE1CB; }
+    .conn-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 12px 16px; }
+    .btn-connect { padding: 10px 22px; background: #1D9E75; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn-connect:hover { background: #0F6E56; }
+    .status-badge { font-size: 12px; padding: 5px 12px; border-radius: 999px; font-weight: 600; background: #f0f0f0; color: #888; }
+    .status-badge.connected { background: #E1F5EE; color: #0F6E56; }
+    .alert-box { border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; display: none; font-weight: 700; text-align: center; }
+    .alert-high   { background: #FCEBEB; border: 1px solid #F09595; color: #A32D2D; }
+    .alert-low    { background: #E6F1FB; border: 1px solid #B5D4F4; color: #185FA5; }
+    .alert-danger { background: #4a0000; border: 1px solid #ff0000; color: #fff; font-size: 16px; animation: flashbg 0.5s infinite; }
+    @keyframes flashbg { 0%,100%{background:#4a0000} 50%{background:#a30000} }
+    .grid4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 14px; }
+    .grid2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 14px; }
+    .grid3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 14px; }
+    .card { background: #fff; border: 1px solid #e0e0e0; border-radius: 14px; padding: 16px 18px; }
+    .card-label { font-size: 12px; color: #888; margin-bottom: 4px; }
+    .card-value { font-size: 26px; font-weight: 700; color: #1a1a1a; }
+    .card-sub { font-size: 12px; color: #888; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .section-title { font-size: 14px; font-weight: 700; margin-bottom: 10px; color: #1a1a1a; }
+    .bar-bg { background: #f0f0f0; border-radius: 999px; height: 8px; margin: 5px 0; }
+    .bar-fill { height: 8px; border-radius: 999px; transition: width 0.5s; }
+    .row-between { display: flex; justify-content: space-between; align-items: center; }
+    .tag { font-size: 12px; padding: 4px 12px; border-radius: 999px; font-weight: 600; }
+    .chart-area { position: relative; height: 100px; }
+    .pred-badge { font-size: 10px; background: #FFF3CD; color: #856404; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+    .live-badge { font-size: 10px; background: #D1FAE5; color: #065F46; padding: 2px 8px; border-radius: 999px; margin-left: 6px; }
+    input[type="number"], input[type="text"] { width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; font-size:13px; background:#fafafa; color:#1a1a1a; outline:none; }
+    input:focus { border-color: #1D9E75; }
+    .add-btn { padding:8px 14px; border:1px solid #ddd; border-radius:8px; font-size:13px; background:#f5f5f5; color:#1a1a1a; cursor:pointer; white-space:nowrap; }
+    .add-btn:hover { background:#e8e8e8; }
+    .input-row { display:flex; gap:8px; margin-top:10px; }
+    .meal-list { margin-top:8px; max-height:90px; overflow-y:auto; }
+    .meal-item { display:flex; justify-content:space-between; font-size:12px; padding:5px 0; border-bottom:1px solid #f0f0f0; color:#555; }
+    .bmi-zone { display:flex; gap:4px; margin-top:8px; }
+    .bmi-seg { flex:1; height:6px; border-radius:999px; }
+    .mood-btns { display:flex; gap:8px; justify-content:center; margin:10px 0; }
+    .mood-btn { font-size:22px; background:none; border:1px solid #e0e0e0; border-radius:10px; padding:8px 12px; cursor:pointer; }
+    .mood-btn:hover { background:#f5f5f5; }
+    .history-table { width:100%; border-collapse:collapse; font-size:12px; }
+    .history-table th { background:#f5f5f5; padding:6px 10px; text-align:left; color:#888; font-weight:600; border-bottom:1px solid #e0e0e0; }
+    .history-table td { padding:6px 10px; border-bottom:1px solid #f5f5f5; }
+    @media(max-width:700px){ .grid4,.grid3{grid-template-columns:repeat(2,1fr);} .grid2{grid-template-columns:1fr;} }
+    @media(max-width:400px){ .grid4,.grid3,.grid2{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo"><span>Well</span>Sense</div>
+  <div class="score-pill" id="wellness-score">Wellness Score: -- / 100</div>
+</div>
+
+<div class="conn-bar">
+  <button class="btn-connect" onclick="connectArduino()">Connect Arduino</button>
+  <div id="conn-status" class="status-badge">Not connected</div>
+</div>
+
+<div class="alert-box alert-danger" id="alert-danger">🚨 DANGER: Temperature above 39.5°C — Seek medical help immediately!</div>
+<div class="alert-box alert-high"   id="alert-high">⚠️ WARNING: High Temperature! Above 38°C — possible fever</div>
+<div class="alert-box alert-low"    id="alert-low">❄️ WARNING: Low Temperature! Below 35°C — possible hypothermia</div>
+
+<div class="grid4">
+  <div class="card">
+    <div class="card-label">Temperature <span class="live-badge">● LIVE</span></div>
+    <div class="card-value" id="temp-val">--</div>
+    <div class="card-sub"><span class="dot" id="temp-dot" style="background:#ccc"></span><span id="temp-status">Waiting...</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Heart Rate <span class="pred-badge">⚡ predicted</span></div>
+    <div class="card-value" id="hr-val">--</div>
+    <div class="card-sub"><span class="dot" id="hr-dot" style="background:#ccc"></span><span id="hr-status">Waiting for temp...</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Blood Oxygen <span class="pred-badge">⚡ predicted</span></div>
+    <div class="card-value" id="spo2-val">--</div>
+    <div class="card-sub"><span class="dot" id="spo2-dot" style="background:#ccc"></span><span id="spo2-status">Waiting for temp...</span></div>
+  </div>
+  <div class="card">
+    <div class="card-label">Overall Status</div>
+    <div class="card-value" id="overall-val" style="font-size:18px;padding-top:4px">--</div>
+    <div class="card-sub"><span class="dot" id="overall-dot" style="background:#ccc"></span><span id="overall-status">Waiting...</span></div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="section-title">Temperature - Live (°C)</div>
+    <div class="chart-area"><canvas id="tempChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="section-title">Heart Rate - Predicted (BPM) <span class="pred-badge">⚡ predicted</span></div>
+    <div class="chart-area"><canvas id="hrChart"></canvas></div>
+  </div>
+</div>
+
+<div class="grid3">
+  <div class="card">
+    <div class="section-title">BMI Calculator</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div><div class="card-label">Height (cm)</div><input type="number" id="height" value="170" oninput="calcBMI()"></div>
+      <div><div class="card-label">Weight (kg)</div><input type="number" id="weight" value="65" oninput="calcBMI()"></div>
+    </div>
+    <div class="row-between" style="margin-bottom:4px">
+      <div class="card-value" style="font-size:24px" id="bmi-result">22.5</div>
+      <div class="tag" id="bmi-tag" style="background:#EAF3DE;color:#3B6D11">Normal</div>
+    </div>
+    <div class="card-label" id="bmi-advice">Healthy weight. Keep it up!</div>
+    <div class="bmi-zone">
+      <div class="bmi-seg" style="background:#B5D4F4"></div>
+      <div class="bmi-seg" style="background:#C0DD97"></div>
+      <div class="bmi-seg" style="background:#FAC775"></div>
+      <div class="bmi-seg" style="background:#F0997B"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:#aaa;margin-top:4px">
+      <span>Under</span><span>Normal</span><span>Over</span><span>Obese</span>
+    </div>
+    <div style="margin-top:10px">
+      <div class="card-label">Daily Calories Needed</div>
+      <div style="font-size:18px;font-weight:700;color:#1D9E75" id="cal-needed">2000 kcal</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Water Intake</div>
+    <div class="row-between" style="margin-bottom:6px">
+      <span style="font-size:13px;color:#888">Goal: 8 glasses</span>
+      <span style="font-size:13px;font-weight:700" id="water-count">0 / 8</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" id="water-bar" style="width:0%;background:#378ADD"></div></div>
+    <div style="font-size:12px;color:#888;margin:6px 0" id="water-tip">Drink more water!</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin:8px 0" id="glass-icons"></div>
+    <button class="add-btn" onclick="addWater()" style="width:100%;margin-top:4px">+ Add glass</button>
+    <button class="add-btn" onclick="resetWater()" style="width:100%;margin-top:6px;color:#888">Reset</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">Meal and Calorie Logger</div>
+    <div class="row-between" style="margin-bottom:4px">
+      <span style="font-size:13px;color:#888">Goal: <span id="cal-goal-label">2000</span> kcal</span>
+      <span style="font-size:13px;font-weight:700" id="cal-total">0 kcal</span>
+    </div>
+    <div class="bar-bg"><div class="bar-fill" id="cal-bar" style="width:0%;background:#639922"></div></div>
+    <div style="font-size:12px;color:#888;margin:4px 0" id="cal-tip">No meals logged yet</div>
+    <div class="input-row">
+      <input type="text" id="meal-name" placeholder="Meal name...">
+      <input type="number" id="meal-cal" placeholder="kcal" style="width:70px;flex:none">
+      <button class="add-btn" onclick="addMeal()">Add</button>
+    </div>
+    <div class="meal-list" id="meal-list"></div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="section-title">Daily Mood Check-in</div>
+    <div class="mood-btns">
+      <button class="mood-btn" onclick="setMood(this,'Great','#1D9E75')">😁</button>
+      <button class="mood-btn" onclick="setMood(this,'Good','#639922')">😀</button>
+      <button class="mood-btn" onclick="setMood(this,'Okay','#EF9F27')">😐</button>
+      <button class="mood-btn" onclick="setMood(this,'Sad','#378ADD')">😟</button>
+      <button class="mood-btn" onclick="setMood(this,'Stressed','#E24B4A')">😣</button>
+    </div>
+    <div id="mood-result" style="text-align:center;font-size:13px;color:#888">Select your mood above</div>
+  </div>
+  <div class="card">
+    <div class="section-title">Sleep Tracker</div>
+    <div class="card-label">Hours slept last night</div>
+    <div style="display:flex;align-items:center;gap:10px;margin:10px 0">
+      <input type="range" id="sleep-slider" min="0" max="12" step="0.5" value="7" oninput="updateSleep(this.value)" style="flex:1">
+      <div style="font-size:20px;font-weight:700;min-width:36px" id="sleep-val">7h</div>
+    </div>
+    <div class="row-between" style="margin-bottom:6px">
+      <div class="tag" id="sleep-tag" style="background:#EAF3DE;color:#3B6D11">Good sleep</div>
+      <div style="font-size:12px;color:#888">Recommended: 7-9h</div>
+    </div>
+    <div style="font-size:13px;color:#555" id="sleep-advice">Great! You had a good night sleep.</div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <div class="section-title">Wellness Summary</div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px">
+    <div>
+      <div class="row-between"><span style="font-size:13px;color:#888">Temperature Health</span><span style="font-size:13px;font-weight:700" id="phy-pct">--</span></div>
+      <div class="bar-bg"><div class="bar-fill" id="phy-bar" style="width:0%;background:#1D9E75"></div></div>
+    </div>
+    <div>
+      <div class="row-between"><span style="font-size:13px;color:#888">Nutrition</span><span style="font-size:13px;font-weight:700" id="nut-pct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill" id="nut-bar" style="width:0%;background:#639922"></div></div>
+    </div>
+    <div>
+      <div class="row-between"><span style="font-size:13px;color:#888">Hydration</span><span style="font-size:13px;font-weight:700" id="hyd-pct">0%</span></div>
+      <div class="bar-bg"><div class="bar-fill" id="hyd-bar" style="width:0%;background:#378ADD"></div></div>
+    </div>
+    <div>
+      <div class="row-between"><span style="font-size:13px;color:#888">Sleep</span><span style="font-size:13px;font-weight:700" id="slp-pct">78%</span></div>
+      <div class="bar-bg"><div class="bar-fill" id="slp-bar" style="width:78%;background:#7F77DD"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:14px">
+  <div class="section-title">Live Temperature Log</div>
+  <div style="overflow-x:auto">
+    <table class="history-table">
+      <thead>
+        <tr><th>Time</th><th>Temperature</th><th>Predicted HR</th><th>Predicted SpO2</th><th>Status</th></tr>
+      </thead>
+      <tbody id="data-body">
+        <tr><td colspan="5" style="text-align:center;color:#aaa;padding:16px">Connect Arduino to see live data</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+let waterCount = 0, totalCal = 0, meals = [], calGoal = 2000;
+let tempData = new Array(20).fill(0);
+let hrData   = new Array(20).fill(0);
+let dataLog  = [];
+let serialBuffer = '';
+let lastTemp = 0;
+let arduinoPort = null;
+
+// ── Charts ───────────────────────────────────────
+function makeChart(id, data, color, min, max) {
+  return new Chart(document.getElementById(id).getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: data.map((_, i) => i),
+      datasets: [{ data: [...data], borderColor: color, borderWidth: 2, pointRadius: 0, fill: true, backgroundColor: color + '18', tension: 0.4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: { x: { display: false }, y: { display: false, min, max } }
+    }
+  });
+}
+
+const tempChart = makeChart('tempChart', tempData, '#1D9E75', 30, 42);
+const hrChart   = makeChart('hrChart',   hrData,   '#E24B4A', 40, 150);
+
+// ── HR + SpO2 Prediction based on temperature ────
+// Real physiology: every 1°C above 36.5 = ~10 BPM rise
+// SpO2 drops slightly with high fever
+function predictHR(temp) {
+  if (temp <= 0) return 0;
+  const base  = 72;
+  const rise  = (temp - 36.5) * 10;
+  const noise = Math.random() * 6 - 3; // ±3 BPM natural variation
+  return Math.round(Math.min(150, Math.max(45, base + rise + noise)));
+}
+
+function predictSpO2(temp) {
+  if (temp <= 0) return 0;
+  // Normal SpO2 = 98%, drops slightly above 38.5°C
+  const base = 98;
+  const drop = temp > 38.5 ? (temp - 38.5) * 1.5 : 0;
+  const noise = Math.random() * 1.4 - 0.7; // ±0.7% variation
+  return Math.round(Math.min(100, Math.max(88, base - drop + noise)));
+}
+
+// ── Main UI update ───────────────────────────────
+function updateUI(temp, status) {
+  lastTemp = temp;
+
+  // Predict HR and SpO2 from temp
+  const hr   = predictHR(temp);
+  const spo2 = predictSpO2(temp);
+
+  // Update charts
+  tempData.push(temp); tempData.shift();
+  hrData.push(hr);     hrData.shift();
+  tempChart.data.datasets[0].data = [...tempData];
+  hrChart.data.datasets[0].data   = [...hrData];
+  tempChart.update('none');
+  hrChart.update('none');
+
+  // Temp card
+  if (temp > 0) {
+    document.getElementById('temp-val').textContent       = temp.toFixed(1) + ' °C';
+    const isDanger = temp >= 39.5;
+    const isHigh   = temp >= 38;
+    const isLow    = temp <= 35;
+    const tColor   = isDanger ? '#A32D2D' : isHigh ? '#E24B4A' : isLow ? '#378ADD' : '#1D9E75';
+    const tLabel   = isDanger ? 'DANGER!' : isHigh ? 'High!' : isLow ? 'Low!' : 'Normal';
+    document.getElementById('temp-dot').style.background = tColor;
+    document.getElementById('temp-status').textContent   = tLabel;
+  } else {
+    document.getElementById('temp-val').textContent      = '--';
+    document.getElementById('temp-dot').style.background = '#ccc';
+    document.getElementById('temp-status').textContent   = 'Waiting...';
+  }
+
+  // HR card
+  if (hr > 0) {
+    const hrColor = hr < 90 ? '#1D9E75' : hr < 110 ? '#EF9F27' : '#E24B4A';
+    const hrLabel = hr < 90 ? 'Normal' : hr < 110 ? 'Elevated' : 'High!';
+    document.getElementById('hr-val').textContent        = hr + ' BPM';
+    document.getElementById('hr-val').style.color        = hrColor;
+    document.getElementById('hr-dot').style.background   = hrColor;
+    document.getElementById('hr-status').textContent     = hrLabel;
+  } else {
+    document.getElementById('hr-val').textContent        = '--';
+    document.getElementById('hr-val').style.color        = '#1a1a1a';
+    document.getElementById('hr-dot').style.background   = '#ccc';
+    document.getElementById('hr-status').textContent     = 'Waiting for temp...';
+  }
+
+  // SpO2 card
+  if (spo2 > 0) {
+    const sColor = spo2 >= 95 ? '#1D9E75' : spo2 >= 90 ? '#EF9F27' : '#E24B4A';
+    const sLabel = spo2 >= 95 ? 'Excellent' : spo2 >= 90 ? 'Low' : 'Danger!';
+    document.getElementById('spo2-val').textContent      = spo2 + ' %';
+    document.getElementById('spo2-dot').style.background = sColor;
+    document.getElementById('spo2-status').textContent   = sLabel;
+  } else {
+    document.getElementById('spo2-val').textContent      = '--';
+    document.getElementById('spo2-dot').style.background = '#ccc';
+    document.getElementById('spo2-status').textContent   = 'Waiting for temp...';
+  }
+
+  // Alerts
+  const isDanger = status === 'DANGER';
+  const isHigh   = status === 'HIGH';
+  const isLow    = status === 'LOW';
+  document.getElementById('alert-danger').style.display = isDanger ? 'block' : 'none';
+  document.getElementById('alert-high').style.display   = isHigh   ? 'block' : 'none';
+  document.getElementById('alert-low').style.display    = isLow    ? 'block' : 'none';
+
+  // Overall
+  const isAlarm = isDanger || isHigh || isLow;
+  document.getElementById('overall-val').textContent        = isDanger ? 'DANGER!' : isAlarm ? 'ALERT!' : temp > 0 ? 'Normal' : 'Waiting';
+  document.getElementById('overall-dot').style.background   = isDanger ? '#A32D2D' : isAlarm ? '#E24B4A' : temp > 0 ? '#1D9E75' : '#ccc';
+  document.getElementById('overall-status').textContent     = isDanger ? 'Seek help now!' : isAlarm ? 'Check temperature!' : temp > 0 ? 'All good' : 'Waiting...';
+
+  // Log
+  if (temp > 0) {
+    const now = new Date().toLocaleTimeString();
+    dataLog.unshift({ time: now, temp: temp.toFixed(1) + ' °C', hr: hr + ' BPM', spo2: spo2 + '%', status });
+    if (dataLog.length > 20) dataLog.pop();
+    document.getElementById('data-body').innerHTML = dataLog.map(r =>
+      '<tr><td>' + r.time + '</td><td>' + r.temp + '</td><td>' + r.hr + '</td><td>' + r.spo2 + '</td><td>' + r.status + '</td></tr>'
+    ).join('');
+  }
+
+  updateSummary();
+}
+
+// ── Arduino Connection ───────────────────────────
+async function connectArduino() {
+  if (!('serial' in navigator)) { alert('Please use Chrome or Edge.'); return; }
+  try {
+    arduinoPort = await navigator.serial.requestPort();
+    await arduinoPort.open({ baudRate: 115200 });
+    const badge = document.getElementById('conn-status');
+    badge.textContent = 'Arduino connected';
+    badge.className   = 'status-badge connected';
+    const reader  = arduinoPort.readable.getReader();
+    const decoder = new TextDecoder();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      serialBuffer += decoder.decode(value);
+      const lines = serialBuffer.split('\n');
+      serialBuffer = lines.pop();
+      for (const line of lines) {
+        try {
+          const d = JSON.parse(line.trim());
+          updateUI(d.temp || 0, d.status || 'NORMAL');
+        } catch(e) { console.log('Bad JSON:', line); }
+      }
+    }
+  } catch(e) {
+    alert('Could not connect. Make sure Arduino is plugged in and Arduino IDE is closed.');
+    console.error(e);
+  }
+}
+
+// ── BMI ──────────────────────────────────────────
+function calcBMI() {
+  const h = parseFloat(document.getElementById('height').value) / 100;
+  const w = parseFloat(document.getElementById('weight').value);
+  if (!h || !w) return;
+  const bmi = (w / (h * h)).toFixed(1);
+  document.getElementById('bmi-result').textContent = bmi;
+  let label, bg, color, advice;
+  if      (bmi < 18.5) { label='Underweight'; bg='#E6F1FB'; color='#185FA5'; advice='You may need to eat more.';    calGoal=2200; }
+  else if (bmi < 25)   { label='Normal';      bg='#EAF3DE'; color='#3B6D11'; advice='Healthy weight. Keep it up!'; calGoal=2000; }
+  else if (bmi < 30)   { label='Overweight';  bg='#FAEEDA'; color='#854F0B'; advice='Try more exercise.';           calGoal=1800; }
+  else                 { label='Obese';        bg='#FCEBEB'; color='#A32D2D'; advice='Please consult a doctor.';    calGoal=1600; }
+  const t = document.getElementById('bmi-tag');
+  t.textContent = label; t.style.background = bg; t.style.color = color;
+  document.getElementById('bmi-advice').textContent     = advice;
+  document.getElementById('cal-goal-label').textContent = calGoal;
+  document.getElementById('cal-needed').textContent     = calGoal + ' kcal';
+  updateSummary();
+}
+calcBMI();
+
+// ── Water ────────────────────────────────────────
+function addWater() {
+  if (waterCount >= 8) return;
+  waterCount++;
+  document.getElementById('water-count').textContent = waterCount + ' / 8';
+  document.getElementById('water-bar').style.width   = (waterCount / 8 * 100) + '%';
+  const tips = ['','Keep going!','Good!','Halfway!','Halfway!','Almost!','Almost!','Almost done!','Goal reached!'];
+  document.getElementById('water-tip').textContent = tips[waterCount];
+  const g = document.createElement('span');
+  g.style.cssText = 'width:26px;height:26px;background:#B5D4F4;border-radius:6px;display:inline-block;border:1px solid #85B7EB;';
+  document.getElementById('glass-icons').appendChild(g);
+  updateSummary();
+}
+function resetWater() {
+  waterCount = 0;
+  document.getElementById('water-count').textContent = '0 / 8';
+  document.getElementById('water-bar').style.width   = '0%';
+  document.getElementById('water-tip').textContent   = 'Drink more water!';
+  document.getElementById('glass-icons').innerHTML   = '';
+  updateSummary();
+}
+
+// ── Meals ────────────────────────────────────────
+function addMeal() {
+  const name = document.getElementById('meal-name').value.trim();
+  const cal  = parseInt(document.getElementById('meal-cal').value);
+  if (!name || !cal || cal <= 0) return;
+  meals.push({ name, cal, time: new Date().toLocaleTimeString() });
+  totalCal += cal;
+  document.getElementById('meal-name').value = '';
+  document.getElementById('meal-cal').value  = '';
+  const pct = Math.min(Math.round(totalCal / calGoal * 100), 100);
+  document.getElementById('cal-total').textContent = totalCal + ' kcal';
+  document.getElementById('cal-bar').style.width   = pct + '%';
+  document.getElementById('cal-tip').textContent   = pct < 50 ? 'Keep eating healthy!' : pct < 90 ? 'Almost at goal!' : 'Goal reached!';
+  document.getElementById('meal-list').innerHTML   = meals.slice().reverse().map(m =>
+    '<div class="meal-item"><span>' + m.name + ' (' + m.time + ')</span><span>' + m.cal + ' kcal</span></div>'
+  ).join('');
+  updateSummary();
+}
+
+// ── Mood ─────────────────────────────────────────
+function setMood(btn, mood, color) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.style.background = 'none');
+  btn.style.background = color + '22';
+  const r = document.getElementById('mood-result');
+  r.style.color = color; r.textContent = 'Feeling: ' + mood + ' at ' + new Date().toLocaleTimeString();
+}
+
+// ── Sleep ────────────────────────────────────────
+function updateSleep(val) {
+  const h = parseFloat(val);
+  document.getElementById('sleep-val').textContent = h + 'h';
+  let tag, tagBg, tagColor, advice, pct;
+  if      (h < 5)  { tag='Very low'; tagBg='#FCEBEB'; tagColor='#A32D2D'; advice='Very low — affects health.'; pct=25; }
+  else if (h < 7)  { tag='Low';      tagBg='#FAEEDA'; tagColor='#854F0B'; advice='Try to get 7+ hours.';       pct=55; }
+  else if (h <= 9) { tag='Good';     tagBg='#EAF3DE'; tagColor='#3B6D11'; advice='Great sleep!';               pct=90; }
+  else             { tag='Too much'; tagBg='#E6F1FB'; tagColor='#185FA5'; advice='Too much reduces energy.';   pct=65; }
+  const t = document.getElementById('sleep-tag');
+  t.textContent = tag; t.style.background = tagBg; t.style.color = tagColor;
+  document.getElementById('sleep-advice').textContent = advice;
+  document.getElementById('slp-pct').textContent      = pct + '%';
+  document.getElementById('slp-bar').style.width      = pct + '%';
+  updateSummary();
+}
+
+// ── Wellness Summary ─────────────────────────────
+function updateSummary() {
+  const hydPct = Math.round(waterCount / 8 * 100);
+  const nutPct = Math.min(Math.round(totalCal / calGoal * 100), 100);
+  const slpPct = parseInt(document.getElementById('slp-pct').textContent) || 78;
+  const phyPct = lastTemp > 0
+    ? (lastTemp >= 39.5 ? 10 : lastTemp >= 38 ? 40 : lastTemp <= 35 ? 30 : 95)
+    : 0;
+
+  if (lastTemp > 0) {
+    document.getElementById('phy-pct').textContent = phyPct + '%';
+    document.getElementById('phy-bar').style.width = phyPct + '%';
+  }
+  document.getElementById('hyd-pct').textContent = hydPct + '%';
+  document.getElementById('hyd-bar').style.width  = hydPct + '%';
+  document.getElementById('nut-pct').textContent = nutPct + '%';
+  document.getElementById('nut-bar').style.width  = nutPct + '%';
+
+  const score = Math.round(((phyPct || 50) + nutPct + hydPct + slpPct) / 4);
+  document.getElementById('wellness-score').textContent = 'Wellness Score: ' + score + ' / 100';
+}
+</script>
+</body>
+</html>
